@@ -4,7 +4,7 @@
 
 Салогуб Андрій
 
-Основні рекомендації написання коду для JavaScript
+Рекомендації написання коду для JavaScript-проектів на стеку Node.js + React
 
 Методи рефакторингу коду програмного забезпечення: Decompose Conditional, Replace Parameter with Explicit Methods та Substitute Algorithm
 
