@@ -211,6 +211,1192 @@ https://youtu.be/uhfKJk1UkQ8
 Рисунок 4 — Cпецифікація розробленого API
 
 
+
+ДОДАТОК В
+Специфікацію API
+
+Специфікація API авторизації:
+/**
+ * @swagger
+ * tags:
+ *   - name: Auth
+ *     description: Authentication, registration, email verification, token management
+ */
+
+/**
+ * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: Register a new user
+ *     description: Creates a new user account and sends a 6-digit verification code to email
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: user@example.com
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *                 description: Minimum 8 characters
+ *               firstName:
+ *                 type: string
+ *                 example: Andrii
+ *               lastName:
+ *                 type: string
+ *                 example: Salohub
+ *     responses:
+ *       201:
+ *         description: Registration successful. Verification code sent to email.
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 message: "Registration successful. Please check your email to verify your account."
+ *                 userId: "clz123abc456def789"
+ *               message: "Registration successful. Please verify your email."
+ *       400:
+ *         description: Invalid email, weak password, or user already exists
+ */
+
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Login with email and password
+ *     description: Authenticates user and returns JWT token in httpOnly cookie + response
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 format: password
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         headers:
+ *           Set-Cookie:
+ *             description: httpOnly JWT token (valid 7 days)
+ *             schema:
+ *               type: string
+ *               example: token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; Max-Age=604800
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       $ref: '#/components/schemas/UserPublic'
+ *                     token:
+ *                       type: string
+ *                       description: JWT token (also sent in cookie)
+ *       401:
+ *         description: Invalid credentials
+ *       403:
+ *         description: Email not verified or account blocked
+ */
+
+/**
+ * @swagger
+ * /api/auth/verify-email/{userId}:
+ *   post:
+ *     summary: Verify email with 6-digit code
+ *     description: Completes registration by verifying the code sent to email
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID returned during registration
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - code
+ *             properties:
+ *               code:
+ *                 type: string
+ *                 pattern: ^\d{6}$
+ *                 example: "483920"
+ *     responses:
+ *       200:
+ *         description: Email verified successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                     user:
+ *                       $ref: '#/components/schemas/UserPublic'
+ *                     token:
+ *                       type: string
+ *       400:
+ *         description: Invalid or expired code
+ *       404:
+ *         description: User not found
+ */
+
+/**
+ * @swagger
+ * /api/auth/refresh:
+ *   post:
+ *     summary: Refresh JWT token
+ *     description: Generates a new access token using valid current token
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: New token issued
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     token:
+ *                       type: string
+ *       401:
+ *         description: Invalid or expired token
+ */
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Logout user
+ *     description: Clears the httpOnly cookie
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logged out successfully
+ *         headers:
+ *           Set-Cookie:
+ *             description: Cookie cleared
+ *             schema:
+ *               type: string
+ *               example: token=; HttpOnly; Max-Age=0
+ */
+
+/**
+ * @swagger
+ * /api/auth/me:
+ *   get:
+ *     summary: Get current authenticated user
+ *     description: Returns profile of the logged-in user
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current user data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/UserPublic'
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     UserPublic:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         email:
+ *           type: string
+ *           format: email
+ *         firstName:
+ *           type: string
+ *           nullable: true
+ *         lastName:
+ *           type: string
+ *           nullable: true
+ *         role:
+ *           type: string
+ *           enum: [user, admin]
+ *         emailVerified:
+ *           type: boolean
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *       required:
+ *         - id
+ *         - email
+ *         - role
+ *         - emailVerified
+ */
+Специфікація API для дій з автомобілем:
+/**
+ * @swagger
+ * tags:
+ *   - name: Cars
+ *     description: Vehicle management, VIN lookup, ownership history, mileage tampering detection
+ */
+
+/**
+ * @swagger
+ * /api/cars:
+ *   post:
+ *     summary: Add a new vehicle (for sale or personal use)
+ *     description: |
+ *       Registers a new car in the system. Automatically creates ownership record.
+ *       Validates VIN format and checks for duplicates.
+ *       Only authenticated users can add cars.
+ *     tags: [Cars]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - vin
+ *               - make
+ *               - model
+ *               - year
+ *             properties:
+ *               vin:
+ *                 type: string
+ *                 pattern: ^[A-HJ-NPR-Z0-9]{17}$
+ *                 example: WF0AXXTTRALS12345
+ *                 description: 17-character VIN (uppercase recommended)
+ *               make:
+ *                 type: string
+ *                 example: Toyota
+ *               model:
+ *                 type: string
+ *                 example: Camry
+ *               year:
+ *                 type: integer
+ *                 minimum: 1886
+ *                 maximum: 2026
+ *                 example: 2021
+ *               color:
+ *                 type: string
+ *                 example: Pearl White
+ *               engineType:
+ *                 type: string
+ *                 example: 2.5L Hybrid
+ *               transmission:
+ *                 type: string
+ *                 enum: [manual, automatic, cvt, dual-clutch]
+ *               fuelType:
+ *                 type: string
+ *                 enum: [petrol, diesel, hybrid, electric, lpg, hydrogen]
+ *               currentMileage:
+ *                 type: integer
+ *                 minimum: 0
+ *                 example: 82340
+ *               mileageUnit:
+ *                 type: string
+ *                 enum: [km, mi]
+ *                 default: km
+ *               ownershipDocumentUrl:
+ *                 type: string
+ *                 format: uri
+ *                 description: Link to photo/scan of registration certificate
+ *               description:
+ *                 type: string
+ *                 example: One owner, full Toyota service history, winter tires included
+ *     responses:
+ *       201:
+ *         description: Vehicle successfully added
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CarResponse'
+ *       400:
+ *         description: Invalid VIN, duplicate VIN, or validation error
+ *       401:
+ *         description: Unauthorized
+ */
+
+/**
+ * @swagger
+ * /api/cars/vin/{vin}:
+ *   get:
+ *     summary: Public vehicle lookup by VIN
+ *     description: |
+ *       **Public endpoint** — no authentication required.
+ *       Returns full vehicle profile: specs, current mileage, risk score, ownership history.
+ *       Used on landing page and in reports.
+ *     tags: [Cars]
+ *     parameters:
+ *       - in: path
+ *         name: vin
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: ^[A-HJ-NPR-Z0-9]{17}$
+ *         description: 17-character VIN (case-insensitive)
+ *         example: WF0AXXTTRALS12345
+ *     responses:
+ *       200:
+ *         description: Vehicle found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PublicCarProfile'
+ *       404:
+ *         description: Vehicle not found
+ *       400:
+ *         description: Invalid VIN format
+ */
+
+/**
+ * @swagger
+ * /api/cars/{id}:
+ *   patch:
+ *     summary: Update vehicle information (owner only)
+ *     description: |
+ *       Only the current owner can update their car.
+ *       If new mileage is lower than previous → **mileage tampering detected automatically** → risk score increases.
+ *     tags: [Cars]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Vehicle ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               currentMileage:
+ *                 type: integer
+ *                 minimum: 0
+ *                 example: 98765
+ *                 description: New odometer reading
+ *               description:
+ *                 type: string
+ *                 example: New summer tires, oil changed
+ *               color:
+ *                 type: string
+ *                 example: Midnight Black
+ *               ownershipDocumentUrl:
+ *                 type: string
+ *                 format: uri
+ *             additionalProperties: false
+ *     responses:
+ *       200:
+ *         description: Vehicle updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CarResponse'
+ *       400:
+ *         description: Mileage rollback detected or invalid data
+ *       403:
+ *         description: You are not the current owner
+ *       404:
+ *         description: Vehicle not found
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Car:
+ *       type: object
+ *       required:
+ *         - id
+ *         - vin
+ *         - make
+ *         - model
+ *         - year
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         vin:
+ *           type: string
+ *           pattern: ^[A-HJ-NPR-Z0-9]{17}$
+ *         make:
+ *           type: string
+ *         model:
+ *           type: string
+ *         year:
+ *           type: integer
+ *         color:
+ *           type: string
+ *           nullable: true
+ *         engineType:
+ *           type: string
+ *           nullable: true
+ *         transmission:
+ *           type: string
+ *           nullable: true
+ *         fuelType:
+ *           type: string
+ *           nullable: true
+ *         currentMileage:
+ *           type: integer
+ *           nullable: true
+ *         mileageUnit:
+ *           type: string
+ *           enum: [km, mi]
+ *           default: km
+ *         description:
+ *           type: string
+ *           nullable: true
+ *         ownershipDocumentUrl:
+ *           type: string
+ *           format: uri
+ *           nullable: true
+ *         riskScore:
+ *           type: integer
+ *           minimum: 0
+ *           maximum: 100
+ *           description: 0–30 low, 31–70 medium, 71–100 high risk
+ *         riskLevel:
+ *           type: string
+ *           enum: [low, medium, high]
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *
+ *     PublicCarProfile:
+ *       type: object
+ *       allOf:
+ *         - $ref: '#/components/schemas/Car'
+ *         - type: object
+ *           properties:
+ *             carOwners:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   isCurrent:
+ *                     type: boolean
+ *                   startedAt:
+ *                     type: string
+ *                     format: date-time
+ *                   endedAt:
+ *                     type: string
+ *                     format: date-time
+ *                     nullable: true
+ *                   startedMileage:
+ *                     type: integer
+ *                     nullable: true
+ *
+ *     CarResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         data:
+ *           $ref: '#/components/schemas/Car'
+ *         message:
+ *           type: string
+ *           example: "Car created successfully"
+ */
+
+Специфікація API для подій:
+/**
+ * @swagger
+ * tags:
+ *   - name: Events
+ *     description: Vehicle history events — accidents, services, inspections, mileage updates, and fraud detection
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     CarEvent:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         carId:
+ *           type: string
+ *           format: uuid
+ *         eventType:
+ *           type: string
+ *           enum: [accident, service, inspection, repair, mileage_update, sale, mileage_tampering, other]
+ *         severity:
+ *           type: string
+ *           enum: [low, medium, high, critical]
+ *           nullable: true
+ *         description:
+ *           type: string
+ *           nullable: true
+ *         mileage:
+ *           type: integer
+ *           nullable: true
+ *         location:
+ *           type: string
+ *           nullable: true
+ *         cost:
+ *           type: string
+ *           nullable: true
+ *         verifiedByIot:
+ *           type: boolean
+ *           default: false
+ *         documentUrl:
+ *           type: string
+ *           nullable: true
+ *         reportedBy:
+ *           type: string
+ *           format: uuid
+ *           nullable: true
+ *         eventDate:
+ *           type: string
+ *           format: date-time
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *       required:
+ *         - id
+ *         - carId
+ *         - eventType
+ *         - eventDate
+ *         - createdAt
+ *         - updatedAt
+ */
+
+/**
+ * @swagger
+ * /api/events:
+ *   post:
+ *     summary: Create a new vehicle event
+ *     description: |
+ *       Add a new event to the vehicle's history.
+ *       If mileage is provided and lower than previous records → **mileage tampering detected automatically**.
+ *       This will create a `mileage_tampering` event and increase risk score.
+ *     tags: [Events]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - carId
+ *               - eventType
+ *               - eventDate
+ *             properties:
+ *               carId:
+ *                 type: string
+ *                 format: uuid
+ *                 description: Vehicle ID
+ *               eventType:
+ *                 type: string
+ *                 enum: [accident, service, inspection, repair, mileage_update, sale, other]
+ *                 example: accident
+ *               severity:
+ *                 type: string
+ *                 enum: [low, medium, high, critical]
+ *                 example: high
+ *               description:
+ *                 type: string
+ *                 example: Rear-end collision at highway, airbag deployed
+ *               mileage:
+ *                 type: integer
+ *                 minimum: 0
+ *                 example: 158000
+ *                 description: Odometer reading at the time of event (triggers tampering check)
+ *               location:
+ *                 type: string
+ *                 example: Kyiv, Ukraine
+ *               cost:
+ *                 type: string
+ *                 pattern: ^\d+(\.\d{1,2})?$
+ *                 example: "2500.00"
+ *                 description: Repair cost in USD
+ *               documentUrl:
+ *                 type: string
+ *                 format: uri
+ *                 example: https://storage.example.com/accidents/report-123.pdf
+ *               eventDate:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2025-03-15T10:30:00Z"
+ *     responses:
+ *       201:
+ *         description: Event created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CarEvent'
+ *       400:
+ *         description: Mileage tampering detected or invalid data
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: false
+ *               error: "Mileage tampering detected! Car status updated."
+ *       403:
+ *         description: Not authorized to add events for this vehicle
+ */
+
+/**
+ * @swagger
+ * /api/events/car/{carId}:
+ *   get:
+ *     summary: Get all events for a vehicle
+ *     description: Returns complete history with filtering support
+ *     tags: [Events]
+ *     parameters:
+ *       - in: path
+ *         name: carId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Vehicle ID
+ *       - in: query
+ *         name: eventType
+ *         schema:
+ *           type: string
+ *           enum: [accident, service, mileage_tampering, inspection]
+ *         description: Filter by event type
+ *       - in: query
+ *         name: severity
+ *         schema:
+ *           type: string
+ *           enum: [low, medium, high, critical]
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: ISO date (e.g., 2024-01-01T00:00:00Z)
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *     responses:
+ *       200:
+ *         description: List of events
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/CarEvent'
+ */
+
+/**
+ * @swagger
+ * /api/events/{eventId}:
+ *   put:
+ *     summary: Update an existing event
+ *     description: Only allowed for events created by the current user
+ *     tags: [Events]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               description:
+ *                 type: string
+ *               cost:
+ *                 type: string
+ *               documentUrl:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Event updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CarEvent'
+ *       404:
+ *         description: Event not found
+ *
+ *   delete:
+ *     summary: Delete an event
+ *     description: Removes event and recalculates vehicle risk score
+ *     tags: [Events]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Event deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                   example: "Event deleted successfully"
+ *       404:
+ *         description: Event not found
+ */
+
+Специфікація API звітів:
+/**
+ * @swagger
+ * tags:
+ *   - name: Reports
+ *     description: Vehicle history reports with risk analysis and recommendations
+ */
+
+/**
+ * @swagger
+ * /api/reports/{vin}:
+ *   get:
+ *     summary: Generate vehicle history report
+ *     description: |
+ *       Generates a detailed vehicle report by VIN.
+ *       Currently all report types are **free**.
+ *       Includes automatic risk assessment and purchase recommendations.
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: vin
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: ^[A-HJ-NPR-Z0-9]{17}$
+ *         description: 17-character VIN (case-insensitive)
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [basic, extended, premium]
+ *           default: basic
+ *         description: |
+ *           Report detail level:
+ *           - `basic` — summary + critical events
+ *           - `extended` — + telemetry + ownership history
+ *           - `premium` — full report (currently same as extended)
+ *     responses:
+ *       200:
+ *         description: Vehicle report generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 reportType:
+ *                   type: string
+ *                   enum: [basic, extended, premium]
+ *                 generatedAt:
+ *                   type: string
+ *                   format: date-time
+ *                 car:
+ *                   $ref: '#/components/schemas/Car'
+ *                 events:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/CarEvent'
+ *                 owners:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 recentTelemetry:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 alerts:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 recommendations:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       severity:
+ *                         type: string
+ *                         enum: [low, medium, high, critical]
+ *                       message:
+ *                         type: string
+ *                     example:
+ *                       - severity: critical
+ *                         message: "DO NOT BUY: Mileage tampering detected"
+ *       404:
+ *         description: Vehicle not found
+ *       400:
+ *         description: Invalid VIN
+ */
+
+Специфікація API користувачив:
+/**
+ * @swagger
+ * tags:
+ *   - name: Users
+ *     description: User profile management, car ownership history, statistics and admin tools
+ */
+
+/**
+ * @swagger
+ * /api/users/profile:
+ *   get:
+ *     summary: Get current user profile
+ *     description: Returns authenticated user's personal information (excluding password)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserProfile'
+ *       401:
+ *         description: Unauthorized
+ *
+ *   patch:
+ *     summary: Update user profile
+ *     description: Partially update first name and/or last name
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *                 maxLength: 100
+ *                 example: Andrii
+ *               lastName:
+ *                 type: string
+ *                 maxLength: 100
+ *                 example: Salohub
+ *             additionalProperties: false
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserProfile'
+ *       400:
+ *         description: Invalid data
+ */
+
+/**
+ * @swagger
+ * /api/users/my-cars:
+ *   get:
+ *     summary: Get cars currently owned by user
+ *     description: Returns list of vehicles where user is the current owner
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current cars
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Car'
+ */
+
+/**
+ * @swagger
+ * /api/users/my-cars/history:
+ *   get:
+ *     summary: Get complete car ownership history
+ *     description: All cars user has ever owned, including past ownerships
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Full ownership history
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 allOf:
+ *                   - $ref: '#/components/schemas/Car'
+ *                   - type: object
+ *                     properties:
+ *                       ownership:
+ *                         type: object
+ *                         properties:
+ *                           startedAt:
+ *                             type: string
+ *                             format: date-time
+ *                           endedAt:
+ *                             type: string
+ *                             format: date-time
+ *                             nullable: true
+ *                           isCurrent:
+ *                             type: boolean
+ */
+
+/**
+ * @swagger
+ * /api/users/check-history:
+ *   get:
+ *     summary: Get user's VIN check history
+ *     description: List of all vehicle reports user has requested
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 50
+ *         description: Number of recent checks to return
+ *     responses:
+ *       200:
+ *         description: Check history
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/VehicleCheck'
+ */
+
+/**
+ * @swagger
+ * /api/users/stats:
+ *   get:
+ *     summary: Get user statistics
+ *     description: Summary of user's activity and ownership
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User statistics
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 totalCarsOwned:
+ *                   type: integer
+ *                   example: 5
+ *                 currentCarsOwned:
+ *                   type: integer
+ *                   example: 2
+ *                 totalChecksPerformed:
+ *                   type: integer
+ *                   example: 47
+ *                 memberSince:
+ *                   type: string
+ *                   format: date-time
+ *                   example: "2024-01-15T10:30:00Z"
+ */
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   get:
+ *     summary: Get user by ID (Admin or self)
+ *     description: Admin can view any user. Regular user can only view own profile.
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: User details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserProfile'
+ *       403:
+ *         description: Access denied
+ *       404:
+ *         description: User not found
+ */
+
+/**
+ * @swagger
+ * /api/users/account:
+ *   delete:
+ *     summary: Delete user account
+ *     description: Permanently deletes user account. Not allowed if user currently owns any cars.
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Account deleted successfully
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 message: "User deleted successfully"
+ *       400:
+ *         description: Cannot delete — user owns active vehicles
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     UserProfile:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         email:
+ *           type: string
+ *           format: email
+ *         firstName:
+ *           type: string
+ *           nullable: true
+ *         lastName:
+ *           type: string
+ *           nullable: true
+ *         role:
+ *           type: string
+ *           enum: [user, admin]
+ *         isBlocked:
+ *           type: boolean
+ *         emailVerified:
+ *           type: boolean
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *       required:
+ *         - id
+ *         - email
+ *         - role
+ *         - emailVerified
+ *
+ *     VehicleCheck:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         vin:
+ *           type: string
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         car:
+ *           $ref: '#/components/schemas/Car'
+ *           nullable: true
+ *         riskScore:
+ *           type: integer
+ *           nullable: true
+ */
+
+
+
+
      
 
 
