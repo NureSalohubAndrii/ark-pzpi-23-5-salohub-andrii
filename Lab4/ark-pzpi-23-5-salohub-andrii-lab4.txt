@@ -1,0 +1,485 @@
+﻿МІНІСТЕРСТВО ОСВІТИ І НАУКИ УКРАЇНИ
+ХАРКІВСЬКИЙ НАЦІОНАЛЬНИЙ УНІВЕРСИТЕТ РАДІОЕЛЕКТРОНІКИ
+
+
+КАФЕДРА ПРОГРАМНОЇ ІНЖЕНЕРІЇ
+
+
+
+
+Звіт
+з лабораторної роботи № 4 з дисципліни
+Аналіз та рефакторинг коду
+
+
+
+
+
+Виконала:                                                                         Перевірив:
+ст. гр. ПЗПІ-23-5                        				ст. викладач кафедри ПІ
+Салогуб Андрій Сергійович 				          Сокорчук Ігор Петрович
+
+
+
+
+
+
+
+
+
+Харків 2025
+
+
+1 ІСТОРІЯ ЗМІН
+
+№
+Версія звіту
+Опис змін та виправлень
+1
+0.1
+Створено розділ “Історія змін”
+
+
+      
+
+
+2 ЗАВДАННЯ
+
+   Завдання:
+1. Розробити будову програмного забезпечення ІоТ клієнта.
+2. Створити UML діаграму прецедентів для ІоТ клієнта.
+3. Розробити бізнес логіку (математину обробку повʼязаних із предметною областю даних) та функції налаштування ІоТ клієнта.
+4. Створити діаграму діяльності для ІоТ клієнта.
+5. Створити програмну реалізацію бізнес логіки та функцій налаштування ІоТ клієнта.
+6. Перевірити роботу ІоТ клієнта.
+7. Завантажити або оновити (при потребі) створений програмний код у GitHub репозиторій для лабораторних робіт у гілку репозиторію main.
+8. Створити відеозапис демонстрації описаної у розділі 3.1 Vision & Scope. функціональності IoT клієнта та завантажити цей відеозапис у свій канал на YouTube. При завантаженні відеозапису потрібно обовʼязково встановити у налаштуваннях для цього відео українську мову як мову відео та мову субтитрів до відео.
+9. Створити хронологічний опис (хвилина:секунда) демонстрації та додати цей опис до опису відео.
+10. Створити звіт до лабораторної роботи.
+11. Експортувати створений звіт у формат PDF та завантажити його на платформу dl.nure.ua.
+12. Експортувати увесь створений звіт у текстовий файл з кодуванням UTF-8 та записати цей файл у GitHub репозиторій для лабораторних робіт.
+
+
+
+3 ОПИС ВИКОНАНОЇ РОБОТИ
+
+     У межах лабораторної роботи було розроблено програмне забезпечення IoT-клієнта для моніторингу технічного стану транспортного засобу та передачі телеметричних даних на серверну частину інформаційної системи. IoT-клієнт реалізовано на базі мікроконтролера ESP32 та призначено для збору, обробки й передавання даних про пробіг, рівень пального, напругу акумулятора, вологість та стан двигуна.
+     IoT-клієнт взаємодіє із сервером через REST API та підтримує механізми синхронізації конфігурації, збереження налаштувань у енергонезалежній памʼяті та локальну бізнес-логіку обробки даних.
+     Доступ до конфігурації пристрою здійснюється централізовано з серверної частини, що дозволяє змінювати параметри роботи IoT-клієнта без перепрошивки пристрою.
+     На UML діаграмі прецедентів (рис. 1) відображено основні сценарії взаємодії IoT-клієнта із зовнішніми акторами:
+- IoT пристрій;
+- Користувач.
+     Основні прецеденти:
+- синхронізація конфігурації з сервером;
+- передавання телеметрії;
+- обробка подій запуску та зупинки двигуна;
+- локальна обробка сенсорних даних;
+- збереження та завантаження налаштувань.
+     Бізнес-логіка IoT-клієнта полягає у математичній обробці сенсорних даних, фільтрації шумів, виявленні критичних станів та формуванні подій для серверної частини.
+     Для зменшення впливу шуму сенсорів використовується експоненційне згладжування, яке реалізоване в коді наступним чином (рядки 1–4):
+1 float smoothData(float currentVal, float newVal, float alpha) {
+3   return (alpha * newVal) + ((1.0 - alpha) * currentVal);
+4 }
+
+     Цей алгоритм застосовується для: рівня пального та напруги акумулятора. Коефіцієнти згладжування (alpha) налаштовуються сервером та зберігаються у памʼяті.
+     Пробіг збільшується лише за умови, що двигун перебуває у стані «увімкнено». Оновлення пробігу відбувається раз на хвилину, що імітує реальний рух автомобіля.
+     Фрагмент коду оновлення одометра (рядки 1–5):
+1 if (currentData.engineRunning && (millis() - lastMileageUpdate >= 60000)) {
+2   currentData.mileage += 1;
+3   preferences.putInt("mileage", currentData.mileage);
+4   lastMileageUpdate = millis();
+5 }
+
+     Отримане значення пробігу передається на сервер, де додатково перевіряється на наявність ознак втручання (скручування одометра).
+- IoT-клієнт локально перевіряє сенсорні дані на перевищення або заниження порогових значень:
+- низький рівень заряду акумулятора;
+- низький рівень пального;
+- перевищення допустимого рівня вологості.
+     У разі виявлення критичного стану формується відповідне попередження, яке передається у телеметрії.
+     Фрагмент коду формування попереджень (рядки 1–9):
+1 if (currentData.batteryVoltage < config.batteryLowThreshold) {
+2   doc["alert"] = "LOW_BATTERY_WARNING";
+3 }
+4 if (currentData.fuelLevel < config.fuelLowThreshold) {
+5   doc["alert"] = "LOW_FUEL_WARNING";
+6 }
+7 if (currentData.humidity > config.humidityHighThreshold) {
+8   doc["alert"] = "HIGH_HUMIDITY_WARNING";
+9 }
+
+     IoT-клієнт підтримує збереження конфігурації у памʼяті з використанням механізму Preferences. Це забезпечує збереження налаштувань після перезавантаження пристрою.
+     Під час запуску пристрою виконується завантаження конфігурації:
+- VIN транспортного засобу;
+- інтервали надсилання телеметрії;
+- порогові значення сенсорів;
+- коефіцієнти згладжування;
+- стан активності пристрою.
+     Фрагмент коду завантаження налаштувань (рядки 1–5):
+1 config.vin = preferences.getString("vin", "ZACNJBBB1LPL49421");
+2 config.activeIntervalMs = preferences.getULong("activeMs", 10000);
+3 config.idleIntervalMs = preferences.getULong("idleMs", 1800000);
+4 config.batteryLowThreshold = preferences.getFloat("batThresh", 11.5);
+5 config.fuelLowThreshold = preferences.getFloat("fuelThresh", 10.0);
+
+     Під час синхронізації IoT-клієнт отримує актуальну конфігурацію з сервера та порівнює її з локальною. У разі змін параметри оновлюються та зберігаються у памʼяті.
+     На UML діаграмі діяльності IoT-клієнта (рис. 2) відображено основний алгоритм роботи пристрою від моменту запуску до регулярної взаємодії із серверною частиною системи. Робота починається з ініціалізації та завантаження конфігурації з енергонезалежної памʼяті, після чого виконується підключення до мережі Wi-Fi та первинна синхронізація з сервером для отримання актуальних параметрів роботи. У разі надходження змін конфігурації вони зберігаються локально та використовуються у подальшій роботі пристрою.
+     Далі IoT-клієнт переходить у основний цикл функціонування, у межах якого здійснюється зчитування та математична обробка сенсорних даних, контроль стану двигуна, оновлення одометра та формування телеметрії. Передавання даних на сервер відбувається з інтервалами, що залежать від режиму роботи транспортного засобу. Окрім основного сценарію, діаграма діяльності передбачає додаткові дії, зокрема перевірку критичних станів, повторні спроби зʼєднання, обробку помилок, логування службових подій та періодичну повторну синхронізацію конфігурації з сервером.
+
+
+
+
+4 ВИСНОВКИ
+
+     У результаті виконання лабораторної роботи було розроблено повнофункціональний IoT-клієнт, який реалізує бізнес-логіку обробки даних транспортного засобу, підтримує дистанційне налаштування та інтеграцію із серверною частиною системи. Реалізоване рішення забезпечує масштабованість, надійність та можливість подальшого розширення функціоналу.
+
+
+
+ДОДАТОК А
+Відеозапис
+
+Відеозапис презентації результатів лабораторної роботи: https://youtu.be/pLSHiU_HmTM
+
+Хронологічний опис відеозапису:
+00:00 - Представлення
+00:06 - Завдання, яке потрібно було виконати
+00:13 - Демонстрація частини реалізації на сервері
+01:15 - Специфікая розробленого API
+01:32 - Пояснення кофнігу
+02:41 - Демонстрація роботи IoT клієнту
+03:59 - Отримання стартового конфігу
+04:12 - Оновлення конфігу
+04:26 - Отримання інформації щодо телементрії (історія, остання телементрія, статистика)
+04:52 - Демонстрація роботи IoT клієнту з оновленим конфігом
+05:29 - Виявлення скрутки пробігу
+06:32 - Отримання історії скручень пробігу
+
+
+ДОДАТОК Б
+Графічні матеріали
+
+
+Рисунок 1 - UML діаграму прецедентів для ІоТ клієнта
+
+
+
+Рисунок 2 - Діаграма діяльності для ІоТ клієнта
+
+
+
+
+ДОДАТОК В
+Специфікацію API
+
+Специфікація API для IoT:
+/**
+ * @swagger
+ * tags:
+ *   - name: IoT
+ *     description: IoT device integration and telemetry
+ */
+
+/**
+ * @swagger
+ * /api/iot/sync/{vin}:
+ *   get:
+ *     summary: Sync IoT device with server
+ *     description: Called by the IoT device on startup/power-on to retrieve current vehicle data, latest mileage, and configuration.
+ *     tags: [IoT]
+ *     parameters:
+ *       - in: path
+ *         name: vin
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Vehicle Identification Number (VIN)
+ *     responses:
+ *       200:
+ *         description: Device synchronized successfully
+ *       404:
+ *         description: Car with specified VIN not found
+ */
+
+/**
+ * @swagger
+ * /api/iot/telemetry:
+ *   post:
+ *     summary: Receive telemetry data from IoT device
+ *     description: Endpoint for IoT devices to send sensor readings. Detects mileage tampering but does NOT block subsequent legitimate data. Events are created once per detection period.
+ *     tags: [IoT]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - vin
+ *               - mileage
+ *               - engineRunning
+ *               - eventType
+ *             properties:
+ *               vin:
+ *                 type: string
+ *                 example: "1HGBH41JXMN109186"
+ *               mileage:
+ *                 type: number
+ *                 example: 45230
+ *               fuelLevel:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 67.5
+ *               humidity:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 45.2
+ *               batteryVoltage:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 12.6
+ *               engineRunning:
+ *                 type: boolean
+ *                 example: true
+ *               eventType:
+ *                 type: string
+ *                 enum: [periodic, engine_start, engine_stop]
+ *                 example: "periodic"
+ *     responses:
+ *       200:
+ *         description: Telemetry processed successfully (even if tampering detected)
+ *       400:
+ *         description: Invalid data format
+ *       404:
+ *         description: Car with specified VIN not found
+ */
+
+/**
+ * @swagger
+ * /api/iot/telemetry/{vin}/history:
+ *   get:
+ *     summary: Get telemetry history for a vehicle
+ *     description: Returns the most recent telemetry records for the specified vehicle.
+ *     tags: [IoT]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: vin
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Vehicle VIN
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 100
+ *           maximum: 1000
+ *         description: Maximum number of records to return
+ *     responses:
+ *       200:
+ *         description: Telemetry history retrieved successfully
+ *       404:
+ *         description: Car not found
+ */
+
+/**
+ * @swagger
+ * /api/iot/telemetry/{vin}/latest:
+ *   get:
+ *     summary: Get the latest telemetry data
+ *     description: Returns the most recent telemetry reading and indicates whether the IoT device is currently online (last update within the last hour).
+ *     tags: [IoT]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: vin
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Vehicle VIN
+ *     responses:
+ *       200:
+ *         description: Latest telemetry data
+ *       404:
+ *         description: Car not found
+ */
+
+/**
+ * @swagger
+ * /api/iot/telemetry/{vin}/stats:
+ *   get:
+ *     summary: Get telemetry statistics for a period
+ *     description: Provides aggregated statistics (total mileage, average daily mileage, engine starts, etc.) based on IoT data over the specified number of days.
+ *     tags: [IoT]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: vin
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Vehicle VIN
+ *       - in: query
+ *         name: days
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 365
+ *           default: 30
+ *         description: Number of past days to analyze
+ *     responses:
+ *       200:
+ *         description: Telemetry statistics
+ *       404:
+ *         description: Car not found
+ */
+
+/**
+ * @swagger
+ * /api/iot/telemetry/{vin}/tampering:
+ *   get:
+ *     summary: Get mileage tampering history
+ *     description: Returns all detected mileage tampering events for the specified vehicle, including rollbacks, suspicious increases, and unrealistic spikes.
+ *     tags: [IoT]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: vin
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Vehicle VIN
+ *     responses:
+ *       200:
+ *         description: Tampering history retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     vin:
+ *                       type: string
+ *                     totalTamperingEvents:
+ *                       type: integer
+ *                     events:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           severity:
+ *                             type: string
+ *                             enum: [high, critical]
+ *                           description:
+ *                             type: string
+ *                           mileage:
+ *                             type: number
+ *                           verifiedByIot:
+ *                             type: boolean
+ *                           eventDate:
+ *                             type: string
+ *                             format: date-time
+ *       404:
+ *         description: Car not found
+ */
+
+/**
+ * @swagger
+ * /api/iot/config/{vin}:
+ *   get:
+ *     summary: Get IoT device configuration
+ *     description: Returns current configuration parameters for the IoT device installed on the vehicle.
+ *     tags: [IoT]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: vin
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Vehicle VIN
+ *     responses:
+ *       200:
+ *         description: Device configuration retrieved successfully
+ *       404:
+ *         description: Car or IoT config not found
+ */
+
+/**
+ * @swagger
+ * /api/iot/config/{vin}:
+ *   patch:
+ *     summary: Update IoT device configuration
+ *     description: Allows authorized users to update reporting intervals, thresholds, smoothing factors, and enable/disable the device.
+ *     tags: [IoT]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: vin
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Vehicle VIN
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               activeInterval:
+ *                 type: integer
+ *                 description: Reporting interval in seconds when engine is running
+ *               idleInterval:
+ *                 type: integer
+ *                 description: Reporting interval in seconds when engine is off
+ *               batteryLowThreshold:
+ *                 type: number
+ *                 description: Voltage threshold (in volts) for low battery alert (e.g., 11.8)
+ *               fuelLowThreshold:
+ *                 type: number
+ *                 description: Fuel level percentage for low fuel alert
+ *               humidityHighThreshold:
+ *                 type: number
+ *                 description: Humidity percentage for leak suspicion alert
+ *               smoothingAlphaFuel:
+ *                 type: number
+ *                 minimum: 0
+ *                 maximum: 1
+ *                 description: Exponential smoothing factor for fuel level (0 = no smoothing, 1 = heavy)
+ *               smoothingAlphaBattery:
+ *                 type: number
+ *                 minimum: 0
+ *                 maximum: 1
+ *                 description: Exponential smoothing factor for battery voltage
+ *               enabled:
+ *                 type: boolean
+ *                 description: Enable or disable IoT data collection
+ *     responses:
+ *       200:
+ *         description: Configuration updated successfully
+ *       404:
+ *         description: Car not found or device needs to sync first
+ */
+
+
+
+     
+
+
+
+1
+
+
+
