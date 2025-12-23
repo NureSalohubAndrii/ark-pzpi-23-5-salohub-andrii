@@ -1,0 +1,37 @@
+{
+    "version": 1,
+    "author": "Student",
+    "editor": "wokwi",
+    "parts": [
+        {
+            "type": "wokwi-esp32-devkit-v1",
+            "id": "esp",
+            "top": -4.9,
+            "left": -24.2,
+            "attrs": {}
+        },
+        {
+            "type": "wokwi-pushbutton",
+            "id": "btn1",
+            "top": -51.4,
+            "left": 134.4,
+            "attrs": { "color": "green", "label": "ENGINE START/STOP" }
+        },
+        {
+            "type": "wokwi-led",
+            "id": "led1",
+            "top": -86.4,
+            "left": 259.4,
+            "attrs": { "color": "red", "label": "Engine Status" }
+        }
+    ],
+    "connections": [
+        ["esp:TX0", "$serialMonitor:RX", "", []],
+        ["esp:RX0", "$serialMonitor:TX", "", []],
+        ["btn1:1.l", "esp:GND.1", "black", ["h0"]],
+        ["btn1:2.r", "esp:D15", "green", ["h0"]],
+        ["led1:A", "esp:D2", "red", ["h0"]],
+        ["led1:C", "esp:GND.2", "black", ["h0"]]
+    ],
+    "dependencies": {}
+}
